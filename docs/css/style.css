@@ -243,6 +243,26 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
 .chip-urgencia[data-nivel="media"][data-selecionado="true"] { background: #E0A100; }
 .chip-urgencia[data-nivel="alta"][data-selecionado="true"] { background: var(--cor-erro); }
 
+/* Banner de janela de atendimento */
+.banner-horario {
+  border-radius: var(--raio);
+  padding: 12px 16px;
+  font-size: 14px;
+  margin-bottom: var(--espaco-3);
+  line-height: 1.5;
+}
+.banner-horario--aviso {
+  background: #FFF6E0;
+  border: 1.5px solid #E0A100;
+  color: #7A5800;
+}
+.banner-horario--bloqueio {
+  background: var(--cor-erro-fundo);
+  border: 1.5px solid var(--cor-erro);
+  color: var(--cor-erro);
+  font-weight: 600;
+}
+
 /* Instrução no topo da lista de itens */
 .instrucao-itens {
   background: #EAF3F8;
