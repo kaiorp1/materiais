@@ -243,6 +243,40 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
 .chip-urgencia[data-nivel="media"][data-selecionado="true"] { background: #E0A100; }
 .chip-urgencia[data-nivel="alta"][data-selecionado="true"] { background: var(--cor-erro); }
 
+/* Autocomplete do catálogo de materiais */
+.campo-autocomplete { position: relative; }
+.autocomplete-lista {
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  background: #fff;
+  border: 1.5px solid var(--cor-primaria-clara);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-elevada);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 50;
+}
+.autocomplete-lista__item {
+  padding: 12px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--cor-borda);
+  font-size: 14px;
+}
+.autocomplete-lista__item:last-child { border-bottom: none; }
+.autocomplete-lista__item:hover, .autocomplete-lista__item[data-ativo="true"] { background: #EAF3F8; }
+.autocomplete-lista__nome { font-weight: 600; color: var(--cor-texto); }
+.autocomplete-lista__meta { font-size: 12px; color: var(--cor-texto-suave); margin-top: 2px; }
+.autocomplete-lista__livre {
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--cor-primaria-clara);
+  font-weight: 600;
+  background: #FAFBFC;
+}
+.campo-ajuda--ok { color: var(--cor-sucesso) !important; font-weight: 600; }
+.campo-ajuda--livre { color: #B07C00 !important; font-weight: 600; }
+
 /* Itens múltiplos (uniformes / materiais) */
 .lista-itens { display: flex; flex-direction: column; gap: var(--espaco-2); margin-bottom: var(--espaco-3); }
 
