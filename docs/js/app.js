@@ -215,18 +215,24 @@
         }
       }
 
-      // 1. Insere a solicitação principal
-      const { data: solicitacao, error: erroInsercao } = await supabaseClient
-        .from('solicitacoes')
-        .insert({
-          ...dadosComuns,
-          tipo: tipoAtual,
-          dados: dadosEspecificos
-        })
-        .select('id, protocolo')
-        .single();
+      // 1. Insere a solicitação principal via função RPC (registrar_solicitacao).
+      //    Não usamos .from('solicitacoes').insert().select() diretamente porque
+      //    o colaborador (anon) só tem permissão de INSERT, não de SELECT — e o
+      //    Supabase precisa "ler de volta" a linha para devolver o protocolo
+      //    gerado. A função RPC roda com privilégio elevado só para esse retorno.
+      const { data: resultadoRpc, error: erroInsercao } = await supabaseClient.rpc('registrar_solicitacao', {
+        p_nome_completo: dadosComuns.nome_completo,
+        p_matricula: dadosComuns.matricula,
+        p_equipe: dadosComuns.equipe,
+        p_cidade: dadosComuns.cidade,
+        p_tipo: tipoAtual,
+        p_dados: dadosEspecificos,
+        p_observacoes: dadosComuns.observacoes
+      });
 
       if (erroInsercao) throw new Error('Erro ao enviar solicitação: ' + erroInsercao.message);
+
+      const solicitacao = resultadoRpc[0];
 
       // 2. Upload de foto, se houver, e atualiza o registro com o caminho
       if (arquivoFoto) {
