@@ -10,6 +10,6 @@
  * Project Settings > API > Project URL / Project API keys > anon public
  */
 const SUPABASE_URL = 'https://lbeygpdcpkhkulvmwlan.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_jmOI21Hnk0HpVxR-AGW2Xg_Y5sIDymR';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxiZXlncGRjcGtoa3Vsdm13bGFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3NDEwMzYsImV4cCI6MjEwMTMxNzAzNn0.f_I6FNTZ4urGfTAXmblxeTjO5kdITrkXRXqEzqCdv0U';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
