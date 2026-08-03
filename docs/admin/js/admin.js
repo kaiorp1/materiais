@@ -263,20 +263,34 @@
       itensHtml = itens.map(i => {
         const custoUnit = parseFloat(i.custo_unitario_snapshot);
         const temCusto = i.catalogo_id && !isNaN(custoUnit);
+        const atendido = i.atendido !== false;
         const custoItem = temCusto ? custoUnit * parseFloat(i.quantidade) : 0;
-        if (temCusto) totalPedido += custoItem;
-        const custoInfo = temCusto
-          ? `<span style="color:var(--cor-acento);font-weight:700;"> · R$ ${custoItem.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>`
-          : `<span style="color:#B07C00;font-weight:600;font-size:11px;"> · fora do catálogo</span>`;
+        if (temCusto && atendido) totalPedido += custoItem;
+
+        let custoInfo;
+        if (!atendido) {
+          custoInfo = `<span style="color:var(--cor-erro);font-weight:700;font-size:11px;"> · SEM ESTOQUE (fora do valor)</span>`;
+        } else if (temCusto) {
+          custoInfo = `<span style="color:var(--cor-acento);font-weight:700;"> · R$ ${custoItem.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>`;
+        } else {
+          custoInfo = `<span style="color:#B07C00;font-weight:600;font-size:11px;"> · fora do catálogo</span>`;
+        }
+
+        const estiloRiscado = !atendido ? 'text-decoration:line-through;opacity:0.6;' : '';
+        const btnToggle = atendido
+          ? `<button class="btn-toggle-atendido" data-item-id="${i.id}" data-novo-estado="false" style="background:#FCEBEC;color:var(--cor-erro);border:1px solid var(--cor-erro);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px;">Marcar sem estoque</button>`
+          : `<button class="btn-toggle-atendido" data-item-id="${i.id}" data-novo-estado="true" style="background:#EAF7F5;color:var(--cor-sucesso);border:1px solid var(--cor-sucesso);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px;">Reativar item</button>`;
+
         return `
         <div class="modal__linha">
-          <strong>${escapeHtml(i.item)}</strong>
-          Qtd: ${i.quantidade} ${i.unidade || ''} ${i.tamanho ? '· Tam: ' + escapeHtml(i.tamanho) : ''}${custoInfo}
-          ${i.justificativa ? '<br><em>' + escapeHtml(i.justificativa) + '</em>' : ''}
+          <strong style="${estiloRiscado}">${escapeHtml(i.item)}</strong>
+          <span style="${estiloRiscado}">Qtd: ${i.quantidade} ${i.unidade || ''} ${i.tamanho ? '· Tam: ' + escapeHtml(i.tamanho) : ''}</span>${custoInfo}
+          ${i.justificativa ? '<br><em style="' + estiloRiscado + '">' + escapeHtml(i.justificativa) + '</em>' : ''}
+          <br>${btnToggle}
         </div>`;
       }).join('');
       if (totalPedido > 0) {
-        itensHtml += `<div class="modal__linha" style="background:#EAF7F5;border-radius:8px;"><strong>Custo total do pedido (itens catalogados)</strong><span style="font-size:16px;font-weight:800;color:var(--cor-primaria);">R$ ${totalPedido.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span></div>`;
+        itensHtml += `<div class="modal__linha" style="background:#EAF7F5;border-radius:8px;"><strong>Custo total do pedido (itens catalogados e atendidos)</strong><span style="font-size:16px;font-weight:800;color:var(--cor-primaria);">R$ ${totalPedido.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span></div>`;
       }
     }
 
@@ -296,6 +310,28 @@
       ${s.observacoes ? `<div class="modal__linha"><strong>Observações</strong>${escapeHtml(s.observacoes)}</div>` : ''}
       ${fotoHtml}
     `;
+
+    // Botões "sem estoque" / "reativar" de cada item
+    document.querySelectorAll('.btn-toggle-atendido').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const novoEstado = btn.dataset.novoEstado === 'true';
+        btn.disabled = true;
+        btn.textContent = 'Salvando...';
+        const { error } = await supabaseClient
+          .from('solicitacao_itens')
+          .update({ atendido: novoEstado, motivo_nao_atendido: novoEstado ? null : 'sem estoque' })
+          .eq('id', btn.dataset.itemId);
+        if (error) {
+          alert('Erro ao atualizar item: ' + error.message);
+          btn.disabled = false;
+          return;
+        }
+        await carregarCustos();
+        atualizarDashboard();
+        abrirDetalhes(id); // reabre o modal já atualizado
+      });
+    });
+
     modal.hidden = false;
   }
 
