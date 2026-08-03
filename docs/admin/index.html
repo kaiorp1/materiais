@@ -66,6 +66,14 @@
         <span class="stat-card__valor" id="stat-tempo-medio">—</span>
         <span class="stat-card__label">Tempo médio (h)</span>
       </div>
+      <div class="stat-card stat-card--custo">
+        <span class="stat-card__valor" id="stat-custo-total">—</span>
+        <span class="stat-card__label">Valor retirado (R$)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card__valor" id="stat-itens-livres">—</span>
+        <span class="stat-card__label">Itens fora do catálogo</span>
+      </div>
     </section>
 
     <section class="graficos-grid">
@@ -80,6 +88,18 @@
       <div class="grafico-card">
         <h3>Solicitações por equipe (top 8)</h3>
         <canvas id="grafico-equipe"></canvas>
+      </div>
+      <div class="grafico-card">
+        <h3>Custo por material (top 10, R$)</h3>
+        <canvas id="grafico-custo-material"></canvas>
+      </div>
+      <div class="grafico-card">
+        <h3>Custo por equipe (R$)</h3>
+        <canvas id="grafico-custo-equipe"></canvas>
+      </div>
+      <div class="grafico-card">
+        <h3>Custo por cidade (R$)</h3>
+        <canvas id="grafico-custo-cidade"></canvas>
       </div>
     </section>
 
