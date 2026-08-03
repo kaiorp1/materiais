@@ -317,9 +317,20 @@
     document.getElementById('stat-concluidas').textContent = concluidas;
     document.getElementById('stat-tempo-medio').textContent = tempoMedio.toFixed(1);
 
-    const custoTotal = custosCache.reduce((acc, c) => acc + (parseFloat(c.custo_total_item) || 0), 0);
+    const custoEfetivado = custosCache
+      .filter(c => c.efetivado)
+      .reduce((acc, c) => acc + (parseFloat(c.custo_total_item) || 0), 0);
+    const custoPrevisto = custosCache
+      .filter(c => !c.efetivado)
+      .reduce((acc, c) => acc + (parseFloat(c.custo_total_item) || 0), 0);
+
     document.getElementById('stat-custo-total').textContent =
-      custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      custoEfetivado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const elPrevisto = document.getElementById('stat-custo-previsto');
+    if (elPrevisto) {
+      elPrevisto.textContent =
+        custoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     document.getElementById('stat-itens-livres').textContent = itensLivresCount;
 
     renderizarGraficos();
@@ -328,7 +339,7 @@
 
   function somarCustoPor(campo) {
     const soma = {};
-    custosCache.forEach(c => {
+    custosCache.filter(c => c.efetivado).forEach(c => {
       const chave = c[campo] || '—';
       soma[chave] = (soma[chave] || 0) + (parseFloat(c.custo_total_item) || 0);
     });
