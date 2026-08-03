@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: requisicoes-materiais-notificacoes
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_DESTINATARIO
+        sync: false
+      - key: EMAIL_REMETENTE
+        sync: false
+      - key: PAINEL_ADMIN_URL
+        sync: false

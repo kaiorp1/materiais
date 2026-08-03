@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Administrativo - Requisição de Materiais</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<!-- ===================== TELA DE LOGIN ===================== -->
+<div id="tela-login" class="login-container">
+  <div class="login-box">
+    <div class="app-header__logo" style="margin:0 auto 16px;background:var(--cor-primaria);color:#fff;">R+</div>
+    <h2>Painel do Almoxarifado</h2>
+    <p class="tela-instrucao">Acesso restrito a colaboradores autorizados</p>
+
+    <form id="form-login">
+      <label class="campo">
+        <span>E-mail</span>
+        <input type="email" id="login-email" required autocomplete="username">
+      </label>
+      <label class="campo">
+        <span>Senha</span>
+        <input type="password" id="login-senha" required autocomplete="current-password">
+      </label>
+      <div class="aviso-erro" id="login-erro" hidden></div>
+      <button type="submit" class="btn-enviar">Entrar</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== PAINEL (após login) ===================== -->
+<div id="painel" class="painel" hidden>
+
+  <header class="app-header">
+    <div class="app-header__brand">
+      <div class="app-header__logo">R+</div>
+      <div>
+        <h1>Painel do Almoxarifado</h1>
+        <p class="app-header__subtitle" id="usuario-logado">—</p>
+      </div>
+    </div>
+    <button id="btn-logout" class="btn-logout">Sair</button>
+  </header>
+
+  <main class="app-main app-main--largo">
+
+    <!-- ---------------- DASHBOARD ---------------- -->
+    <section class="dashboard-cards">
+      <div class="stat-card">
+        <span class="stat-card__valor" id="stat-total">—</span>
+        <span class="stat-card__label">Total de solicitações</span>
+      </div>
+      <div class="stat-card stat-card--pendente">
+        <span class="stat-card__valor" id="stat-pendentes">—</span>
+        <span class="stat-card__label">Pendentes</span>
+      </div>
+      <div class="stat-card stat-card--sucesso">
+        <span class="stat-card__valor" id="stat-concluidas">—</span>
+        <span class="stat-card__label">Concluídas</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card__valor" id="stat-tempo-medio">—</span>
+        <span class="stat-card__label">Tempo médio (h)</span>
+      </div>
+    </section>
+
+    <section class="graficos-grid">
+      <div class="grafico-card">
+        <h3>Solicitações por tipo</h3>
+        <canvas id="grafico-tipo"></canvas>
+      </div>
+      <div class="grafico-card">
+        <h3>Solicitações por cidade</h3>
+        <canvas id="grafico-cidade"></canvas>
+      </div>
+      <div class="grafico-card">
+        <h3>Solicitações por equipe (top 8)</h3>
+        <canvas id="grafico-equipe"></canvas>
+      </div>
+    </section>
+
+    <!-- ---------------- FILTROS ---------------- -->
+    <section class="filtros-card">
+      <div class="filtros-grid">
+        <label class="campo">
+          <span>Pesquisar (nome, matrícula, protocolo)</span>
+          <input type="text" id="filtro-busca" placeholder="Digite para buscar...">
+        </label>
+        <label class="campo">
+          <span>Tipo</span>
+          <select id="filtro-tipo">
+            <option value="">Todos</option>
+            <option value="combustivel">Combustível</option>
+            <option value="manutencao_veiculo">Manutenção de Veículo</option>
+            <option value="uniformes_epis">Uniformes e EPIs</option>
+            <option value="materiais_ferramentas">Materiais e Ferramentas</option>
+          </select>
+        </label>
+        <label class="campo">
+          <span>Status</span>
+          <select id="filtro-status">
+            <option value="">Todos</option>
+            <option value="recebido">Recebido</option>
+            <option value="em_analise">Em análise</option>
+            <option value="separando_material">Separando material</option>
+            <option value="pronto_retirada">Pronto para retirada</option>
+            <option value="concluido">Concluído</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </label>
+        <label class="campo">
+          <span>Cidade</span>
+          <select id="filtro-cidade">
+            <option value="">Todas</option>
+            <option value="Itaguaí">Itaguaí</option>
+            <option value="Seropédica">Seropédica</option>
+            <option value="Paracambi">Paracambi</option>
+          </select>
+        </label>
+        <label class="campo">
+          <span>Ordenar por</span>
+          <select id="filtro-ordenacao">
+            <option value="created_at-desc">Mais recentes primeiro</option>
+            <option value="created_at-asc">Mais antigas primeiro</option>
+            <option value="nome_completo-asc">Nome (A-Z)</option>
+            <option value="cidade-asc">Cidade (A-Z)</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- ---------------- TABELA ---------------- -->
+    <section class="tabela-card">
+      <div class="tabela-scroll">
+        <table id="tabela-solicitacoes">
+          <thead>
+            <tr>
+              <th>Protocolo</th>
+              <th>Data/Hora</th>
+              <th>Nome</th>
+              <th>Equipe</th>
+              <th>Cidade</th>
+              <th>Tipo</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-corpo">
+            <tr><td colspan="8" class="tabela-vazia">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ---------------- MODAL DE DETALHES ---------------- -->
+<div id="modal-detalhes" class="modal" hidden>
+  <div class="modal__conteudo">
+    <button class="modal__fechar" id="modal-fechar">&times;</button>
+    <div id="modal-corpo"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="../js/supabaseClient.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
