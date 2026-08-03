@@ -89,6 +89,83 @@
         div.remove();
       }
     });
+
+    if (config.usaCatalogo) {
+      ativarAutocompleteCatalogo(div);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // AUTOCOMPLETE DO CATÁLOGO DE MATERIAIS
+  // Busca no banco (função buscar_materiais) enquanto a pessoa digita.
+  // - Selecionou da lista => item padronizado (grava catalogo_id, entra no custo)
+  // - Digitou livre       => item aceito normalmente, mas fora do cálculo de custo
+  // ------------------------------------------------------------------
+  function ativarAutocompleteCatalogo(linha) {
+    const input = linha.querySelector('[data-autocomplete-catalogo]');
+    const hiddenId = linha.querySelector('input[name="catalogo_id"]');
+    const listaEl = linha.querySelector('.autocomplete-lista');
+    const statusEl = linha.querySelector('[data-status-catalogo]');
+    const unidadeInput = linha.querySelector('input[name="unidade"]');
+    let timerBusca = null;
+
+    function limparSelecao() {
+      hiddenId.value = '';
+      if (input.value.trim()) {
+        statusEl.textContent = '✎ Item fora do catálogo — não entra no cálculo de custo.';
+        statusEl.className = 'campo-ajuda campo-ajuda--livre';
+      } else {
+        statusEl.textContent = '';
+        statusEl.className = 'campo-ajuda';
+      }
+    }
+
+    function selecionar(mat) {
+      input.value = mat.nome;
+      hiddenId.value = mat.id;
+      if (unidadeInput && mat.unidade) unidadeInput.value = mat.unidade;
+      listaEl.hidden = true;
+      statusEl.textContent = '✔ Item do catálogo';
+      statusEl.className = 'campo-ajuda campo-ajuda--ok';
+    }
+
+    input.addEventListener('input', () => {
+      limparSelecao();
+      const termo = input.value.trim();
+      clearTimeout(timerBusca);
+      if (termo.length < 3) { listaEl.hidden = true; return; }
+
+      timerBusca = setTimeout(async () => {
+        const { data, error } = await supabaseClient.rpc('buscar_materiais', { p_termo: termo });
+        if (error || !data) { listaEl.hidden = true; return; }
+
+        listaEl.innerHTML = '';
+        data.forEach(mat => {
+          const item = document.createElement('div');
+          item.className = 'autocomplete-lista__item';
+          item.innerHTML = `
+            <div class="autocomplete-lista__nome">${mat.nome}</div>
+            <div class="autocomplete-lista__meta">${mat.unidade || ''} ${mat.codigo ? '· Cód. ' + mat.codigo : ''}</div>
+          `;
+          item.addEventListener('mousedown', (e) => { e.preventDefault(); selecionar(mat); });
+          listaEl.appendChild(item);
+        });
+
+        const livre = document.createElement('div');
+        livre.className = 'autocomplete-lista__livre';
+        livre.textContent = data.length === 0
+          ? 'Nenhum item encontrado — o texto digitado será usado como descrição livre.'
+          : 'Não achou? Continue digitando a descrição livremente.';
+        livre.addEventListener('mousedown', (e) => { e.preventDefault(); listaEl.hidden = true; });
+        listaEl.appendChild(livre);
+
+        listaEl.hidden = false;
+      }, 300);
+    });
+
+    input.addEventListener('blur', () => {
+      setTimeout(() => { listaEl.hidden = true; }, 150);
+    });
   }
 
   function resetarFormulario() {
@@ -188,13 +265,15 @@
           const tamanhoEl = linha.querySelector('[name="tamanho"]');
           const unidadeEl = linha.querySelector('[name="unidade"]');
           const justificativaEl = linha.querySelector('[name="justificativa"]');
+          const catalogoEl = linha.querySelector('input[name="catalogo_id"]');
 
           itens.push({
             item,
             quantidade,
             tamanho: tamanhoEl ? sanitizar(tamanhoEl.value) || null : null,
             unidade: unidadeEl ? sanitizar(unidadeEl.value) || null : null,
-            justificativa: justificativaEl ? sanitizar(justificativaEl.value) || null : null
+            justificativa: justificativaEl ? sanitizar(justificativaEl.value) || null : null,
+            catalogo_id: catalogoEl && catalogoEl.value ? catalogoEl.value : null
           });
         });
       } else {
