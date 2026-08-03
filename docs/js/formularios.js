@@ -110,11 +110,15 @@ const CONFIG_FORMULARIOS = {
   materiais_ferramentas: {
     titulo: 'Materiais e Ferramentas',
     permiteMultiplosItens: true,
+    usaCatalogo: true, // ativa autocomplete do catálogo de materiais
     itemCamposHtml: (idx) => `
       <button type="button" class="item-linha__remover" data-remover-item>&times;</button>
-      <label class="campo">
+      <label class="campo campo-autocomplete">
         <span>Material / Ferramenta *</span>
-        <input type="text" name="item" required placeholder="Ex: Abraçadeira">
+        <input type="text" name="item" required placeholder="Digite para buscar no catálogo..." autocomplete="off" data-autocomplete-catalogo>
+        <input type="hidden" name="catalogo_id">
+        <div class="autocomplete-lista" hidden></div>
+        <span class="campo-ajuda" data-status-catalogo></span>
       </label>
       <div class="linha-2col">
         <label class="campo">
