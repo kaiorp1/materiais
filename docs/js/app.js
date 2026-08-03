@@ -60,8 +60,12 @@
     avisoErro.hidden = true;
 
     if (config.permiteMultiplosItens) {
+      const instrucao = config.instrucaoItens
+        ? `<div class="instrucao-itens">${config.instrucaoItens}</div>`
+        : '';
       camposEspecificos.innerHTML = `
         <legend>Itens solicitados</legend>
+        ${instrucao}
         <div class="lista-itens" id="lista-itens"></div>
         <button type="button" class="btn-add-item" id="btn-add-item">+ Adicionar item</button>
       `;
@@ -176,6 +180,30 @@
   }
 
   // ------------------------------------------------------------------
+  // Detector de "lista disfarçada": texto livre que aparenta conter
+  // VÁRIOS materiais num campo só (ex: "2 luvas de redução e 1 tarraxa
+  // de 40mm, e 1 tarraxa de 2 polegadas..."). Aplicado apenas a itens
+  // NÃO selecionados do catálogo.
+  // ------------------------------------------------------------------
+  function pareceListaDeMateriais(texto) {
+    const t = ' ' + texto.toLowerCase().trim() + ' ';
+
+    // Conectivos seguidos de quantidade: " e 1 ", " e 2 ", ", 3 ", "; 2 "
+    if (/[,;]\s*\d+\s/.test(t)) return true;
+    if (/\se\s+\d+\s/.test(t)) return true;
+    if (/\s\+\s*\d+/.test(t)) return true;
+
+    // Mais de um número de quantidade no início de trechos ("2 luvas ... 1 tarraxa")
+    const qtdInicioTrechos = (t.match(/(?:^|\s)(\d+)\s+[a-zà-ú]/g) || []).length;
+    if (qtdInicioTrechos >= 2) return true;
+
+    // Texto muito longo para um único material digitado livremente
+    if (texto.length > 90) return true;
+
+    return false;
+  }
+
+  // ------------------------------------------------------------------
   // Sanitização simples de texto (remove tags HTML de inputs de texto)
   // ------------------------------------------------------------------
   function sanitizar(valor) {
@@ -262,10 +290,17 @@
           if (!item || !quantidade || quantidade <= 0) {
             throw new Error('Verifique os itens: nome e quantidade são obrigatórios.');
           }
+          const catalogoEl = linha.querySelector('input[name="catalogo_id"]');
+          const doCatalogo = !!(catalogoEl && catalogoEl.value);
+
+          // Bloqueio de "lista disfarçada": vários materiais num campo só.
+          // Só se aplica a texto livre — itens selecionados do catálogo passam direto.
+          if (!doCatalogo && pareceListaDeMateriais(item)) {
+            throw new Error('O campo "' + item.slice(0, 40) + '..." parece conter VÁRIOS materiais. Coloque apenas UM material por linha e use o botão "+ Adicionar item" para os demais.');
+          }
           const tamanhoEl = linha.querySelector('[name="tamanho"]');
           const unidadeEl = linha.querySelector('[name="unidade"]');
           const justificativaEl = linha.querySelector('[name="justificativa"]');
-          const catalogoEl = linha.querySelector('input[name="catalogo_id"]');
 
           itens.push({
             item,
@@ -273,7 +308,7 @@
             tamanho: tamanhoEl ? sanitizar(tamanhoEl.value) || null : null,
             unidade: unidadeEl ? sanitizar(unidadeEl.value) || null : null,
             justificativa: justificativaEl ? sanitizar(justificativaEl.value) || null : null,
-            catalogo_id: catalogoEl && catalogoEl.value ? catalogoEl.value : null
+            catalogo_id: doCatalogo ? catalogoEl.value : null
           });
         });
       } else {
