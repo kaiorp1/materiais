@@ -1,4 +1,12 @@
 /* ============================================================
+   CORREÇÃO GLOBAL: garante que [hidden] sempre vença qualquer
+   "display: flex/grid" definido em classes (ex: .modal, .login-container).
+   Sem isso, elementos "escondidos" podem continuar visíveis/clicáveis
+   por cima de outros elementos, bloqueando cliques do mouse.
+   ============================================================ */
+[hidden] { display: none !important; }
+
+/* ============================================================
    LOGIN
    ============================================================ */
 .login-container {
@@ -160,6 +168,7 @@ tbody tr:hover { background: #FAFBFC; }
   z-index: 100;
   padding: var(--espaco-3);
 }
+.modal[hidden] { display: none; }
 .modal__conteudo {
   background: #fff;
   border-radius: var(--raio-grande);
