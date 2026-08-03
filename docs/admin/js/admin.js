@@ -20,7 +20,10 @@
   const STATUS_ORDEM = ['recebido', 'em_analise', 'separando_material', 'pronto_retirada', 'concluido', 'cancelado'];
 
   let solicitacoesCache = [];
+  let custosCache = [];
+  let itensLivresCount = 0;
   let graficoTipo, graficoCidade, graficoEquipe;
+  let graficoCustoMaterial, graficoCustoEquipe, graficoCustoCidade;
 
   // ------------------------------------------------------------------
   // Elementos
@@ -79,7 +82,24 @@
   // ------------------------------------------------------------------
   async function carregarTudo() {
     await carregarSolicitacoes();
+    await carregarCustos();
     atualizarDashboard();
+  }
+
+  async function carregarCustos() {
+    // Itens vinculados ao catálogo (entram no cálculo de custo)
+    const { data: custos } = await supabaseClient
+      .from('vw_custos_retirada')
+      .select('*')
+      .limit(5000);
+    custosCache = custos || [];
+
+    // Contagem de itens digitados livremente (fora do catálogo)
+    const { count } = await supabaseClient
+      .from('solicitacao_itens')
+      .select('id', { count: 'exact', head: true })
+      .is('catalogo_id', null);
+    itensLivresCount = count || 0;
   }
 
   async function carregarSolicitacoes() {
@@ -239,13 +259,25 @@
 
     let itensHtml = '';
     if (itens && itens.length > 0) {
-      itensHtml = itens.map(i => `
+      let totalPedido = 0;
+      itensHtml = itens.map(i => {
+        const custoUnit = parseFloat(i.custo_unitario_snapshot);
+        const temCusto = i.catalogo_id && !isNaN(custoUnit);
+        const custoItem = temCusto ? custoUnit * parseFloat(i.quantidade) : 0;
+        if (temCusto) totalPedido += custoItem;
+        const custoInfo = temCusto
+          ? `<span style="color:var(--cor-acento);font-weight:700;"> · R$ ${custoItem.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>`
+          : `<span style="color:#B07C00;font-weight:600;font-size:11px;"> · fora do catálogo</span>`;
+        return `
         <div class="modal__linha">
           <strong>${escapeHtml(i.item)}</strong>
-          Qtd: ${i.quantidade} ${i.unidade || ''} ${i.tamanho ? '· Tam: ' + escapeHtml(i.tamanho) : ''}
+          Qtd: ${i.quantidade} ${i.unidade || ''} ${i.tamanho ? '· Tam: ' + escapeHtml(i.tamanho) : ''}${custoInfo}
           ${i.justificativa ? '<br><em>' + escapeHtml(i.justificativa) + '</em>' : ''}
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
+      if (totalPedido > 0) {
+        itensHtml += `<div class="modal__linha" style="background:#EAF7F5;border-radius:8px;"><strong>Custo total do pedido (itens catalogados)</strong><span style="font-size:16px;font-weight:800;color:var(--cor-primaria);">R$ ${totalPedido.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span></div>`;
+      }
     }
 
     const dadosEspecificos = Object.entries(s.dados || {})
@@ -285,7 +317,58 @@
     document.getElementById('stat-concluidas').textContent = concluidas;
     document.getElementById('stat-tempo-medio').textContent = tempoMedio.toFixed(1);
 
+    const custoTotal = custosCache.reduce((acc, c) => acc + (parseFloat(c.custo_total_item) || 0), 0);
+    document.getElementById('stat-custo-total').textContent =
+      custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('stat-itens-livres').textContent = itensLivresCount;
+
     renderizarGraficos();
+    renderizarGraficosCusto();
+  }
+
+  function somarCustoPor(campo) {
+    const soma = {};
+    custosCache.forEach(c => {
+      const chave = c[campo] || '—';
+      soma[chave] = (soma[chave] || 0) + (parseFloat(c.custo_total_item) || 0);
+    });
+    return soma;
+  }
+
+  function renderizarGraficosCusto() {
+    const paleta = ['#00A896', '#003D67', '#0A5A8F', '#E0A100', '#8E6FCE', '#2E9E6B', '#C6363C', '#6C7A89', '#3E7CB1', '#B85042'];
+
+    const porMaterial = somarCustoPor('item');
+    const top10 = Object.fromEntries(
+      Object.entries(porMaterial).sort((a, b) => b[1] - a[1]).slice(0, 10)
+        .map(([k, v]) => [k.length > 32 ? k.slice(0, 30) + '…' : k, Math.round(v * 100) / 100])
+    );
+    graficoCustoMaterial = atualizarGraficoBarraH(graficoCustoMaterial, 'grafico-custo-material', top10, '#00A896');
+
+    const porEquipe = somarCustoPor('equipe');
+    const porEquipeArred = Object.fromEntries(Object.entries(porEquipe).map(([k, v]) => [k, Math.round(v * 100) / 100]));
+    graficoCustoEquipe = atualizarGraficoBarra(graficoCustoEquipe, 'grafico-custo-equipe', porEquipeArred, ['#003D67']);
+
+    const porCidade = somarCustoPor('cidade');
+    const porCidadeArred = Object.fromEntries(Object.entries(porCidade).map(([k, v]) => [k, Math.round(v * 100) / 100]));
+    graficoCustoCidade = atualizarGraficoPizza(graficoCustoCidade, 'grafico-custo-cidade', porCidadeArred, paleta.slice(0, 3));
+  }
+
+  function atualizarGraficoBarraH(instancia, canvasId, dados, cor) {
+    if (instancia) instancia.destroy();
+    return new Chart(document.getElementById(canvasId), {
+      type: 'bar',
+      data: {
+        labels: Object.keys(dados),
+        datasets: [{ data: Object.values(dados), backgroundColor: cor }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } }
+      }
+    });
   }
 
   function contarPor(campo) {
