@@ -59,6 +59,18 @@
     formTitulo.textContent = config.titulo;
     avisoErro.hidden = true;
 
+    // Banner de horário de atendimento
+    const estado = estadoHorario();
+    const bannerExistente = document.getElementById('banner-horario');
+    if (bannerExistente) bannerExistente.remove();
+    if (estado !== 'normal') {
+      const div = document.createElement('div');
+      div.id = 'banner-horario';
+      div.innerHTML = bannerHorarioHtml(estado);
+      formTitulo.insertAdjacentElement('afterend', div);
+    }
+    btnEnviar.disabled = (estado === 'fim_de_semana');
+
     if (config.permiteMultiplosItens) {
       const instrucao = config.instrucaoItens
         ? `<div class="instrucao-itens">${config.instrucaoItens}</div>`
@@ -180,6 +192,32 @@
   }
 
   // ------------------------------------------------------------------
+  // JANELA DE ATENDIMENTO
+  // Seg-Sex 08:00–15:30 (horário de Brasília):
+  //  - dentro  => normal
+  //  - fora    => envia, mas avisa que será atendido no próximo dia útil
+  //  - sáb/dom => bloqueado
+  // ------------------------------------------------------------------
+  function estadoHorario() {
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const dia = agora.getDay(); // 0=dom, 6=sáb
+    if (dia === 0 || dia === 6) return 'fim_de_semana';
+    const minutos = agora.getHours() * 60 + agora.getMinutes();
+    if (minutos >= 8 * 60 && minutos <= 15 * 60 + 30) return 'normal';
+    return 'fora_horario';
+  }
+
+  function bannerHorarioHtml(estado) {
+    if (estado === 'fora_horario') {
+      return '<div class="banner-horario banner-horario--aviso">⏰ Fora do horário de atendimento (seg–sex, 08h às 15h30). Você pode enviar normalmente, mas a solicitação <strong>será atendida no próximo dia útil</strong>.</div>';
+    }
+    if (estado === 'fim_de_semana') {
+      return '<div class="banner-horario banner-horario--bloqueio">🚫 As solicitações ficam disponíveis apenas de <strong>segunda a sexta</strong>. Volte no próximo dia útil.</div>';
+    }
+    return '';
+  }
+
+  // ------------------------------------------------------------------
   // Detector de "lista disfarçada": texto livre que aparenta conter
   // VÁRIOS materiais num campo só (ex: "2 luvas de redução e 1 tarraxa
   // de 40mm, e 1 tarraxa de 2 polegadas..."). Aplicado apenas a itens
@@ -192,6 +230,10 @@
     if (/[,;]\s*\d+\s/.test(t)) return true;
     if (/\se\s+\d+\s/.test(t)) return true;
     if (/\s\+\s*\d+/.test(t)) return true;
+
+    // Vírgula/ponto-e-vírgula seguido de PALAVRA (ex: "cabo 800mm, joelho 45")
+    // Números decimais tipo "46,35CM" não têm espaço após a vírgula, então não disparam.
+    if (/[,;]\s+[a-zà-ú]/.test(t)) return true;
 
     // Mais de um número de quantidade no início de trechos ("2 luvas ... 1 tarraxa")
     const qtdInicioTrechos = (t.match(/(?:^|\s)(\d+)\s+[a-zà-ú]/g) || []).length;
@@ -260,6 +302,13 @@
 
     if (enviando) return; // proteção contra envio duplicado (duplo clique / duplo submit)
     if (!tipoAtual) return;
+
+    // Janela de atendimento: fim de semana bloqueia; fora do horário registra flag
+    const estadoJanela = estadoHorario();
+    if (estadoJanela === 'fim_de_semana') {
+      mostrarErro('Solicitações só podem ser enviadas de segunda a sexta. Volte no próximo dia útil.');
+      return;
+    }
 
     avisoErro.hidden = true;
 
@@ -340,7 +389,7 @@
         p_equipe: dadosComuns.equipe,
         p_cidade: dadosComuns.cidade,
         p_tipo: tipoAtual,
-        p_dados: dadosEspecificos,
+        p_dados: (estadoJanela === 'fora_horario') ? { ...dadosEspecificos, fora_horario: true } : dadosEspecificos,
         p_observacoes: dadosComuns.observacoes
       });
 
