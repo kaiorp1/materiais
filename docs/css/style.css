@@ -243,6 +243,18 @@ body { min-height: 100vh; display: flex; flex-direction: column; }
 .chip-urgencia[data-nivel="media"][data-selecionado="true"] { background: #E0A100; }
 .chip-urgencia[data-nivel="alta"][data-selecionado="true"] { background: var(--cor-erro); }
 
+/* Instrução no topo da lista de itens */
+.instrucao-itens {
+  background: #EAF3F8;
+  border: 1px solid var(--cor-primaria-clara);
+  border-radius: var(--raio);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--cor-primaria);
+  margin-bottom: var(--espaco-3);
+  line-height: 1.45;
+}
+
 /* Autocomplete do catálogo de materiais */
 .campo-autocomplete { position: relative; }
 .autocomplete-lista {
