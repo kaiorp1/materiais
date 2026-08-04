@@ -22,6 +22,7 @@
   let solicitacoesCache = [];
   let custosCache = [];
   let itensLivresCount = 0;
+  let repetidosSet = new Set(); // ids de solicitações com pelo menos 1 item repetido
   let graficoTipo, graficoCidade, graficoEquipe;
   let graficoCustoMaterial, graficoCustoEquipe, graficoCustoCidade;
 
@@ -100,6 +101,12 @@
       .select('id', { count: 'exact', head: true })
       .is('catalogo_id', null);
     itensLivresCount = count || 0;
+
+    // IDs de solicitações com pelo menos 1 item repetido pelo mesmo colaborador
+    const { data: repData } = await supabaseClient
+      .from('vw_solicitacoes_com_repetidos')
+      .select('solicitacao_id');
+    repetidosSet = new Set((repData || []).map(r => r.solicitacao_id));
   }
 
   async function carregarSolicitacoes() {
@@ -185,9 +192,15 @@
       return;
     }
 
-    corpo.innerHTML = lista.map(s => `
-      <tr>
-        <td><strong>${s.protocolo}</strong></td>
+    corpo.innerHTML = lista.map(s => {
+      const temRepetido = repetidosSet.has(s.id);
+      const estiloLinha = temRepetido ? 'background:#FFFBEA;' : '';
+      const badgeRepetido = temRepetido
+        ? `<span title="Este colaborador já pediu um ou mais destes itens antes" style="background:#E0A100;color:#fff;border-radius:20px;padding:2px 8px;font-size:10.5px;font-weight:700;margin-left:6px;cursor:help;">⚠ Repetido</span>`
+        : '';
+      return `
+      <tr style="${estiloLinha}">
+        <td><strong>${s.protocolo}</strong>${badgeRepetido}</td>
         <td>${new Date(s.created_at).toLocaleString('pt-BR')}</td>
         <td>${escapeHtml(s.nome_completo)}</td>
         <td>${escapeHtml(s.equipe)}</td>
@@ -199,8 +212,8 @@
           </select>
         </td>
         <td><button class="btn-ver-detalhes" data-id="${s.id}">Ver detalhes</button></td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
 
     corpo.querySelectorAll('.select-status').forEach(sel => {
       sel.addEventListener('change', () => alterarStatus(sel.dataset.id, sel.value));
@@ -247,6 +260,13 @@
     const { data: itens } = await supabaseClient.from('solicitacao_itens').select('*').eq('solicitacao_id', id);
     const { data: anexos } = await supabaseClient.from('solicitacao_anexos').select('*').eq('solicitacao_id', id);
 
+    // Detecta itens repetidos pelo mesmo colaborador (histórico completo)
+    const { data: repetidos } = await supabaseClient.rpc('detectar_itens_repetidos', { p_solicitacao_id: id });
+    const mapRepetidos = {};
+    (repetidos || []).forEach(r => {
+      mapRepetidos[r.item_nome.toLowerCase().trim()] = r;
+    });
+
     let fotoHtml = '';
     if (anexos && anexos.length > 0) {
       const { data: urlAssinada } = await supabaseClient.storage
@@ -267,6 +287,18 @@
         const custoItem = temCusto ? custoUnit * parseFloat(i.quantidade) : 0;
         if (temCusto && atendido) totalPedido += custoItem;
 
+        // Verifica se este item foi pedido antes pelo mesmo colaborador
+        const chaveItem = i.item.toLowerCase().trim();
+        const infoRepetido = mapRepetidos[chaveItem];
+        const alertaRepetido = infoRepetido
+          ? `<div style="background:#FFF6E0;border:1px solid #E0A100;border-radius:6px;padding:5px 10px;margin-top:6px;font-size:11.5px;color:#7A5800;">
+               ⚠️ <strong>Item já pedido antes</strong> por este colaborador —
+               ${infoRepetido.vezes_anterior}x desde o início ·
+               último pedido: ${new Date(infoRepetido.ultimo_pedido).toLocaleDateString('pt-BR')} ·
+               status: <strong>${STATUS_LABEL[infoRepetido.ultimo_status] || infoRepetido.ultimo_status}</strong>
+             </div>`
+          : '';
+
         let custoInfo;
         if (!atendido) {
           custoInfo = `<span style="color:var(--cor-erro);font-weight:700;font-size:11px;"> · SEM ESTOQUE (fora do valor)</span>`;
@@ -282,10 +314,11 @@
           : `<button class="btn-toggle-atendido" data-item-id="${i.id}" data-novo-estado="true" style="background:#EAF7F5;color:var(--cor-sucesso);border:1px solid var(--cor-sucesso);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px;">Reativar item</button>`;
 
         return `
-        <div class="modal__linha">
-          <strong style="${estiloRiscado}">${escapeHtml(i.item)}</strong>
+        <div class="modal__linha" style="${infoRepetido ? 'background:#FFFBEA;border-radius:8px;' : ''}">
+          <strong style="${estiloRiscado}">${infoRepetido ? '⚠️ ' : ''}${escapeHtml(i.item)}</strong>
           <span style="${estiloRiscado}">Qtd: ${i.quantidade} ${i.unidade || ''} ${i.tamanho ? '· Tam: ' + escapeHtml(i.tamanho) : ''}</span>${custoInfo}
           ${i.justificativa ? '<br><em style="' + estiloRiscado + '">' + escapeHtml(i.justificativa) + '</em>' : ''}
+          ${alertaRepetido}
           <br>${btnToggle}
         </div>`;
       }).join('');
