@@ -260,6 +260,7 @@
     return {
       nome_completo: sanitizar(formData.get('nome_completo')),
       matricula: sanitizar(formData.get('matricula')),
+      cpf: sanitizar(formData.get('cpf') || '').replace(/\D/g, ''), // só dígitos
       equipe: sanitizar(formData.get('equipe')),
       cidade: formData.get('cidade'),
       observacoes: sanitizar(formData.get('observacoes') || '') || null
@@ -386,6 +387,7 @@
       const { data: resultadoRpc, error: erroInsercao } = await supabaseClient.rpc('registrar_solicitacao', {
         p_nome_completo: dadosComuns.nome_completo,
         p_matricula: dadosComuns.matricula,
+        p_cpf: dadosComuns.cpf || null,
         p_equipe: dadosComuns.equipe,
         p_cidade: dadosComuns.cidade,
         p_tipo: tipoAtual,
