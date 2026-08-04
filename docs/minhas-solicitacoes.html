@@ -57,6 +57,51 @@
   const resultadoDiv = document.getElementById('resultado-consulta');
   const listaRecentesDiv = document.getElementById('lista-recentes');
 
+  function formatarCPF(cpf) {
+    if (!cpf) return '—';
+    const d = cpf.replace(/\D/g, '');
+    if (d.length !== 11) return cpf;
+    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  }
+
+  function renderComprovante(s) {
+    const temComprovante = s.status === 'concluido' && s.id_externo;
+    if (temComprovante) {
+      return `
+        <div style="background:#fff;border-radius:20px;padding:28px 24px;box-shadow:0 8px 24px rgba(0,61,103,0.14);text-align:center;margin-top:8px;">
+          <div style="font-size:42px;margin-bottom:8px;">🏁</div>
+          <h2 style="color:#1E8E5A;margin:0 0 4px;">Material entregue!</h2>
+          <p style="color:#5B6B77;font-size:14px;margin:0 0 24px;">Protocolo: <strong>${s.protocolo}</strong></p>
+
+          <div style="background:#F4F6F8;border-radius:14px;padding:20px;margin-bottom:20px;text-align:left;">
+            <div style="font-size:12px;color:#5B6B77;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Colaborador</div>
+            <div style="font-size:18px;font-weight:800;color:#003D67;">${s.nome_completo || '—'}</div>
+            <div style="font-size:14px;color:#5B6B77;margin-top:4px;">Matrícula: <strong>${s.matricula || '—'}</strong></div>
+            <div style="font-size:14px;color:#5B6B77;">CPF: <strong>${formatarCPF(s.cpf)}</strong></div>
+          </div>
+
+          <div style="background:#003D67;border-radius:14px;padding:20px;">
+            <div style="font-size:12px;color:#9FB8CC;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Nº do documento de saída</div>
+            <div style="font-size:42px;font-weight:900;color:#fff;letter-spacing:2px;"># ${s.id_externo}</div>
+          </div>
+
+          <p style="font-size:12px;color:#5B6B77;margin-top:16px;">
+            Entregue em ${new Date(s.atendido_em || s.created_at).toLocaleString('pt-BR')}
+          </p>
+        </div>`;
+    }
+
+    return `
+      <div class="grupo-campos" style="margin-top:8px;">
+        <p><strong>Protocolo:</strong> ${s.protocolo}</p>
+        <p><strong>Status:</strong> ${STATUS_LABEL[s.status] || s.status}</p>
+        <p><strong>Enviado em:</strong> ${new Date(s.created_at).toLocaleString('pt-BR')}</p>
+        ${s.status === 'concluido' && !s.id_externo
+          ? '<p style="color:#5B6B77;font-size:13px;">✔ Concluído — comprovante sendo preparado pelo almoxarifado.</p>'
+          : ''}
+      </div>`;
+  }
+
   async function consultar(protocolo) {
     resultadoDiv.innerHTML = '<p style="text-align:center;color:var(--cor-texto-suave)">Consultando...</p>';
     const { data, error } = await supabaseClient.rpc('consultar_protocolo', { p_protocolo: protocolo });
@@ -66,21 +111,16 @@
       return;
     }
 
-    const s = data[0];
-    const dataFormatada = new Date(s.created_at).toLocaleString('pt-BR');
-    resultadoDiv.innerHTML = `
-      <div class="grupo-campos">
-        <legend>Resultado</legend>
-        <p><strong>Protocolo:</strong> ${s.protocolo}</p>
-        <p><strong>Status:</strong> ${STATUS_LABEL[s.status] || s.status}</p>
-        <p><strong>Enviado em:</strong> ${dataFormatada}</p>
-      </div>
-    `;
+    resultadoDiv.innerHTML = renderComprovante(data[0]);
   }
 
   btnConsultar.addEventListener('click', () => {
     const valor = inputProtocolo.value.trim();
     if (valor) consultar(valor);
+  });
+
+  inputProtocolo.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') btnConsultar.click();
   });
 
   function renderRecentes() {
