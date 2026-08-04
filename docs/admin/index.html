@@ -188,6 +188,23 @@
   <div class="modal__conteudo">
     <button class="modal__fechar" id="modal-fechar">&times;</button>
     <div id="modal-corpo"></div>
+
+    <!-- Campo para o operador registrar o ID do pedido externo -->
+    <div id="modal-id-externo" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--cor-borda);" hidden>
+      <label style="display:block;font-size:13px;font-weight:700;color:var(--cor-texto-suave);text-transform:uppercase;margin-bottom:6px;">
+        ID do pedido externo (Nº do documento gerado)
+      </label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="input-id-externo" placeholder="Ex: 4729351"
+               style="flex:1;font-size:16px;padding:10px 14px;border:1.5px solid var(--cor-borda);border-radius:10px;font-family:inherit;">
+        <button id="btn-salvar-id-externo" class="btn-enviar" style="width:auto;padding:10px 18px;font-size:14px;">
+          Salvar
+        </button>
+      </div>
+      <p style="font-size:12px;color:var(--cor-texto-suave);margin-top:6px;">
+        Ao salvar, o colaborador verá este número ao consultar o protocolo.
+      </p>
+    </div>
   </div>
 </div>
 
