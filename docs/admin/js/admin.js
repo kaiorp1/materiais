@@ -365,6 +365,37 @@
       });
     });
 
+    // Campo de ID externo (visível sempre que o modal abre)
+    const divIdExterno = document.getElementById('modal-id-externo');
+    const inputIdExterno = document.getElementById('input-id-externo');
+    const btnSalvarIdExterno = document.getElementById('btn-salvar-id-externo');
+    divIdExterno.hidden = false;
+    inputIdExterno.value = s.id_externo || '';
+
+    btnSalvarIdExterno.onclick = async () => {
+      const novoId = inputIdExterno.value.trim();
+      btnSalvarIdExterno.disabled = true;
+      btnSalvarIdExterno.textContent = 'Salvando...';
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const { error } = await supabaseClient
+        .from('solicitacoes')
+        .update({
+          id_externo: novoId || null,
+          id_externo_registrado_por: session?.user?.email || 'desconhecido',
+          id_externo_registrado_em: new Date().toISOString()
+        })
+        .eq('id', s.id);
+      if (error) {
+        alert('Erro ao salvar ID: ' + error.message);
+      } else {
+        btnSalvarIdExterno.textContent = '✔ Salvo!';
+        // Atualiza cache local para refletir imediatamente
+        const idx = solicitacoesCache.findIndex(x => x.id === s.id);
+        if (idx >= 0) solicitacoesCache[idx].id_externo = novoId || null;
+        setTimeout(() => { btnSalvarIdExterno.textContent = 'Salvar'; btnSalvarIdExterno.disabled = false; }, 2000);
+      }
+    };
+
     modal.hidden = false;
   }
 
