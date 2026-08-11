@@ -84,11 +84,16 @@ const CONFIG_FORMULARIOS = {
   uniformes_epis: {
     titulo: 'Uniformes e EPIs',
     permiteMultiplosItens: true,
+    usaCatalogo: true,
+    instrucaoItens: '🛈 Adicione <strong>UM item por linha</strong> e selecione da lista de sugestões. Para mais itens, use o botão <strong>+ Adicionar item</strong>.',
     itemCamposHtml: (idx) => `
       <button type="button" class="item-linha__remover" data-remover-item>&times;</button>
-      <label class="campo">
-        <span>Item *</span>
-        <input type="text" name="item" required placeholder="Ex: Camisa Manga Longa">
+      <label class="campo campo-autocomplete">
+        <span>Item * <em style="font-weight:400;color:var(--cor-texto-suave);">(apenas 1 por linha)</em></span>
+        <input type="text" name="item" required maxlength="120" placeholder="Digite para buscar no catálogo..." autocomplete="off" data-autocomplete-catalogo>
+        <input type="hidden" name="catalogo_id">
+        <div class="autocomplete-lista" hidden></div>
+        <span class="campo-ajuda" data-status-catalogo></span>
       </label>
       <div class="linha-2col">
         <label class="campo">
