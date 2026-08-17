@@ -146,17 +146,36 @@
   const filtroStatus = document.getElementById('filtro-status');
   const filtroCidade = document.getElementById('filtro-cidade');
   const filtroOrdenacao = document.getElementById('filtro-ordenacao');
+  const filtroDataDe = document.getElementById('filtro-data-de');
+  const filtroDataAte = document.getElementById('filtro-data-ate');
 
-  [filtroBusca, filtroTipo, filtroStatus, filtroCidade, filtroOrdenacao].forEach(el => {
+  [filtroBusca, filtroTipo, filtroStatus, filtroCidade, filtroOrdenacao, filtroDataDe, filtroDataAte].forEach(el => {
     el.addEventListener('input', renderizarTabela);
     el.addEventListener('change', renderizarTabela);
   });
+
+  // Botão limpar filtros
+  document.getElementById('btn-limpar-filtros').addEventListener('click', () => {
+    filtroBusca.value = '';
+    filtroTipo.value = '';
+    filtroStatus.value = '';
+    filtroCidade.value = '';
+    filtroOrdenacao.value = 'created_at-desc';
+    filtroDataDe.value = '';
+    filtroDataAte.value = '';
+    renderizarTabela();
+  });
+
+  // Botão exportar Excel
+  document.getElementById('btn-exportar-excel').addEventListener('click', () => exportarExcel());
 
   function aplicarFiltros(lista) {
     const busca = filtroBusca.value.trim().toLowerCase();
     const tipo = filtroTipo.value;
     const status = filtroStatus.value;
     const cidade = filtroCidade.value;
+    const dataDe = filtroDataDe.value ? new Date(filtroDataDe.value + 'T00:00:00') : null;
+    const dataAte = filtroDataAte.value ? new Date(filtroDataAte.value + 'T23:59:59') : null;
 
     let resultado = lista.filter(s => {
       if (tipo && s.tipo !== tipo) return false;
@@ -166,6 +185,8 @@
         const alvo = `${s.nome_completo} ${s.matricula} ${s.protocolo}`.toLowerCase();
         if (!alvo.includes(busca)) return false;
       }
+      if (dataDe && new Date(s.created_at) < dataDe) return false;
+      if (dataAte && new Date(s.created_at) > dataAte) return false;
       return true;
     });
 
@@ -178,6 +199,115 @@
     });
 
     return resultado;
+  }
+
+  // ------------------------------------------------------------------
+  // EXPORTAR EXCEL (SheetJS)
+  // Exporta as solicitações filtradas com todos os campos + valor total
+  // ------------------------------------------------------------------
+  async function exportarExcel() {
+    const btn = document.getElementById('btn-exportar-excel');
+    btn.textContent = '⏳ Gerando...';
+    btn.disabled = true;
+
+    try {
+      const lista = aplicarFiltros(solicitacoesCache);
+
+      // Busca itens de todas as solicitações filtradas
+      const ids = lista.map(s => s.id);
+      let todosItens = [];
+      if (ids.length > 0) {
+        const { data } = await supabaseClient
+          .from('solicitacao_itens')
+          .select('solicitacao_id, item, quantidade, unidade, custo_unitario_snapshot, atendido')
+          .in('solicitacao_id', ids);
+        todosItens = data || [];
+      }
+
+      // Monta mapa de custo por solicitação
+      const custoMap = {};
+      todosItens.forEach(i => {
+        if (!custoMap[i.solicitacao_id]) custoMap[i.solicitacao_id] = 0;
+        if (i.custo_unitario_snapshot && i.atendido !== false) {
+          custoMap[i.solicitacao_id] += parseFloat(i.quantidade) * parseFloat(i.custo_unitario_snapshot);
+        }
+      });
+
+      // Monta mapa de itens por solicitação (texto)
+      const itensMap = {};
+      todosItens.forEach(i => {
+        if (!itensMap[i.solicitacao_id]) itensMap[i.solicitacao_id] = [];
+        itensMap[i.solicitacao_id].push(`${i.item} (${i.quantidade} ${i.unidade || ''})`);
+      });
+
+      const TIPO_LABEL_EXP = {
+        combustivel: 'Combustível',
+        manutencao_veiculo: 'Manutenção de Veículo',
+        uniformes_epis: 'Uniformes e EPIs',
+        materiais_ferramentas: 'Materiais e Ferramentas',
+      };
+
+      const STATUS_LABEL_EXP = {
+        recebido: 'Recebido',
+        em_analise: 'Em análise',
+        separando_material: 'Separando material',
+        pronto_retirada: 'Pronto para retirada',
+        concluido: 'Concluído',
+        cancelado: 'Cancelado',
+      };
+
+      // Linha de cabeçalho
+      const cabecalho = [
+        'Protocolo', 'Data/Hora', 'Nome', 'Matrícula', 'CPF',
+        'Equipe', 'Cidade', 'Tipo', 'Status',
+        'Itens', 'Valor Total (R$)', 'Concluído em', 'ID Externo', 'Observações'
+      ];
+
+      // Linhas de dados
+      const linhas = lista.map(s => [
+        s.protocolo,
+        new Date(s.created_at).toLocaleString('pt-BR'),
+        s.nome_completo,
+        s.matricula,
+        s.cpf || '',
+        s.equipe,
+        s.cidade,
+        TIPO_LABEL_EXP[s.tipo] || s.tipo,
+        STATUS_LABEL_EXP[s.status] || s.status,
+        (itensMap[s.id] || []).join(' | '),
+        custoMap[s.id] ? parseFloat(custoMap[s.id].toFixed(2)) : 0,
+        s.atendido_em ? new Date(s.atendido_em).toLocaleString('pt-BR') : '',
+        s.id_externo || '',
+        s.observacoes || '',
+      ]);
+
+      // Cria workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([cabecalho, ...linhas]);
+
+      // Larguras das colunas
+      ws['!cols'] = [
+        {wch:22},{wch:18},{wch:25},{wch:12},{wch:14},
+        {wch:20},{wch:12},{wch:22},{wch:18},
+        {wch:50},{wch:14},{wch:18},{wch:14},{wch:30}
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Solicitações');
+
+      // Nome do arquivo com período se filtrado
+      let nomePeriodo = '';
+      if (filtroDataDe.value) nomePeriodo += `_de_${filtroDataDe.value}`;
+      if (filtroDataAte.value) nomePeriodo += `_ate_${filtroDataAte.value}`;
+      const nomeArquivo = `Requisicoes_MetroI${nomePeriodo}_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`;
+
+      XLSX.writeFile(wb, nomeArquivo);
+      btn.textContent = '✔ Exportado!';
+      setTimeout(() => { btn.textContent = '📥 Exportar Excel'; btn.disabled = false; }, 2500);
+    } catch (err) {
+      alert('Erro ao exportar: ' + err.message);
+      btn.textContent = '📥 Exportar Excel';
+      btn.disabled = false;
+    }
   }
 
   // ------------------------------------------------------------------
