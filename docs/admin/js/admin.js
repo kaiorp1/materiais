@@ -143,19 +143,26 @@
   }
 
   // ------------------------------------------------------------------
-  // SELETOR DE REGIONAL — só aparece para usuários com papel 'master'
+  // SELETOR DE REGIONAL (só master) + TÍTULO DINÂMICO conforme a
+  // regional de quem está logado.
   // ------------------------------------------------------------------
+  const tituloPainel = document.getElementById('titulo-painel');
+
   async function configurarFiltroRegional(session) {
     const { data: perfil } = await supabaseClient
       .from('perfis_admin')
-      .select('papel')
+      .select('papel, regional_id, regionais(nome)')
       .eq('id', session.user.id)
       .single();
 
     if (!perfil || perfil.papel !== 'master') {
       campoFiltroRegional.hidden = true;
+      tituloPainel.textContent = 'Requisições de Materiais' +
+        (perfil && perfil.regionais ? ' · ' + perfil.regionais.nome : '');
       return;
     }
+
+    tituloPainel.textContent = 'Requisições de Materiais · Todas as Regionais';
 
     const { data: regionais } = await supabaseClient
       .from('regionais')
@@ -640,10 +647,17 @@
   }
 
   function custosPorRegional() {
+    // custosCache vem de uma view (vw_custos_retirada) que roda sem respeitar
+    // o RLS por padrão do Postgres — por isso SEMPRE restringimos aos ids
+    // que já vieram corretamente filtrados de solicitacoesCache (essa sim
+    // protegida por RLS de verdade), e não só quando o master escolhe uma
+    // regional específica no dropdown.
     const regional = filtroRegional.value;
-    if (!regional) return custosCache;
-    const idsDaRegional = new Set(solicitacoesCache.filter(s => s.regional_id === regional).map(s => s.id));
-    return custosCache.filter(c => idsDaRegional.has(c.solicitacao_id));
+    const listaVisivel = regional
+      ? solicitacoesCache.filter(s => s.regional_id === regional)
+      : solicitacoesCache;
+    const idsVisiveis = new Set(listaVisivel.map(s => s.id));
+    return custosCache.filter(c => idsVisiveis.has(c.solicitacao_id));
   }
 
   function atualizarDashboard() {
