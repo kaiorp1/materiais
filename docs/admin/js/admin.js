@@ -70,6 +70,69 @@
     location.reload();
   });
 
+  // ------------------------------------------------------------------
+  // ALTERAR SENHA (o próprio usuário logado troca a sua)
+  // ------------------------------------------------------------------
+  const modalSenha = document.getElementById('modal-senha');
+  const formAlterarSenha = document.getElementById('form-alterar-senha');
+  const inputNovaSenha = document.getElementById('input-nova-senha');
+  const inputConfirmarSenha = document.getElementById('input-confirmar-senha');
+  const senhaErro = document.getElementById('senha-erro');
+  const senhaSucesso = document.getElementById('senha-sucesso');
+
+  document.getElementById('btn-alterar-senha').addEventListener('click', () => {
+    formAlterarSenha.reset();
+    senhaErro.hidden = true;
+    senhaSucesso.hidden = true;
+    modalSenha.hidden = false;
+  });
+
+  document.getElementById('modal-senha-fechar').addEventListener('click', () => {
+    modalSenha.hidden = true;
+  });
+  modalSenha.addEventListener('click', (e) => { if (e.target === modalSenha) modalSenha.hidden = true; });
+
+  formAlterarSenha.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    senhaErro.hidden = true;
+    senhaSucesso.hidden = true;
+
+    const novaSenha = inputNovaSenha.value;
+    const confirmarSenha = inputConfirmarSenha.value;
+
+    if (novaSenha.length < 6) {
+      senhaErro.textContent = 'A senha precisa ter pelo menos 6 caracteres.';
+      senhaErro.hidden = false;
+      return;
+    }
+    if (novaSenha !== confirmarSenha) {
+      senhaErro.textContent = 'As senhas digitadas não conferem.';
+      senhaErro.hidden = false;
+      return;
+    }
+
+    const btnSalvar = formAlterarSenha.querySelector('button[type="submit"]');
+    btnSalvar.disabled = true;
+    btnSalvar.textContent = 'Salvando...';
+
+    // updateUser grava a nova senha direto no Supabase Auth (auth.users) —
+    // é a senha real e definitiva da conta, válida a partir de agora.
+    const { error } = await supabaseClient.auth.updateUser({ password: novaSenha });
+
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = 'Salvar nova senha';
+
+    if (error) {
+      senhaErro.textContent = 'Erro ao alterar senha: ' + error.message;
+      senhaErro.hidden = false;
+      return;
+    }
+
+    senhaSucesso.hidden = false;
+    formAlterarSenha.reset();
+    setTimeout(() => { modalSenha.hidden = true; }, 1500);
+  });
+
   async function mostrarPainel(session) {
     telaLogin.hidden = true;
     painel.hidden = false;
@@ -480,9 +543,15 @@
         const novoEstado = btn.dataset.novoEstado === 'true';
         btn.disabled = true;
         btn.textContent = 'Salvando...';
+        const { data: { session } } = await supabaseClient.auth.getSession();
         const { error } = await supabaseClient
           .from('solicitacao_itens')
-          .update({ atendido: novoEstado, motivo_nao_atendido: novoEstado ? null : 'sem estoque' })
+          .update({
+            atendido: novoEstado,
+            motivo_nao_atendido: novoEstado ? null : 'sem estoque',
+            alterado_por: session?.user?.email || 'desconhecido',
+            alterado_em: new Date().toISOString()
+          })
           .eq('id', btn.dataset.itemId);
         if (error) {
           alert('Erro ao atualizar item: ' + error.message);
