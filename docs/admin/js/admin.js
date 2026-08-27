@@ -137,8 +137,35 @@
     telaLogin.hidden = true;
     painel.hidden = false;
     usuarioLogado.textContent = session.user.email;
+    await configurarFiltroRegional(session);
     await carregarTudo();
     inscreverRealtime();
+  }
+
+  // ------------------------------------------------------------------
+  // SELETOR DE REGIONAL — só aparece para usuários com papel 'master'
+  // ------------------------------------------------------------------
+  async function configurarFiltroRegional(session) {
+    const { data: perfil } = await supabaseClient
+      .from('perfis_admin')
+      .select('papel')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!perfil || perfil.papel !== 'master') {
+      campoFiltroRegional.hidden = true;
+      return;
+    }
+
+    const { data: regionais } = await supabaseClient
+      .from('regionais')
+      .select('id, nome')
+      .eq('ativo', true)
+      .order('nome');
+
+    filtroRegional.innerHTML = '<option value="">Todas (master)</option>' +
+      (regionais || []).map(r => `<option value="${r.id}">${r.nome}</option>`).join('');
+    campoFiltroRegional.hidden = false;
   }
 
   // ------------------------------------------------------------------
@@ -208,13 +235,15 @@
   const filtroTipo = document.getElementById('filtro-tipo');
   const filtroStatus = document.getElementById('filtro-status');
   const filtroCidade = document.getElementById('filtro-cidade');
+  const filtroRegional = document.getElementById('filtro-regional');
+  const campoFiltroRegional = document.getElementById('campo-filtro-regional');
   const filtroOrdenacao = document.getElementById('filtro-ordenacao');
   const filtroDataDe = document.getElementById('filtro-data-de');
   const filtroDataAte = document.getElementById('filtro-data-ate');
 
-  [filtroBusca, filtroTipo, filtroStatus, filtroCidade, filtroOrdenacao, filtroDataDe, filtroDataAte].forEach(el => {
-    el.addEventListener('input', renderizarTabela);
-    el.addEventListener('change', renderizarTabela);
+  [filtroBusca, filtroTipo, filtroStatus, filtroCidade, filtroRegional, filtroOrdenacao, filtroDataDe, filtroDataAte].forEach(el => {
+    el.addEventListener('input', () => { renderizarTabela(); atualizarDashboard(); });
+    el.addEventListener('change', () => { renderizarTabela(); atualizarDashboard(); });
   });
 
   // Botão limpar filtros
@@ -223,10 +252,12 @@
     filtroTipo.value = '';
     filtroStatus.value = '';
     filtroCidade.value = '';
+    filtroRegional.value = '';
     filtroOrdenacao.value = 'created_at-desc';
     filtroDataDe.value = '';
     filtroDataAte.value = '';
     renderizarTabela();
+    atualizarDashboard();
   });
 
   // Botão exportar Excel
@@ -237,6 +268,7 @@
     const tipo = filtroTipo.value;
     const status = filtroStatus.value;
     const cidade = filtroCidade.value;
+    const regional = filtroRegional.value;
     const dataDe = filtroDataDe.value ? new Date(filtroDataDe.value + 'T00:00:00') : null;
     const dataAte = filtroDataAte.value ? new Date(filtroDataAte.value + 'T23:59:59') : null;
 
@@ -244,6 +276,7 @@
       if (tipo && s.tipo !== tipo) return false;
       if (status && s.status !== status) return false;
       if (cidade && s.cidade !== cidade) return false;
+      if (regional && s.regional_id !== regional) return false;
       if (busca) {
         const alvo = `${s.nome_completo} ${s.matricula} ${s.protocolo}`.toLowerCase();
         if (!alvo.includes(busca)) return false;
@@ -601,12 +634,25 @@
   // ------------------------------------------------------------------
   // DASHBOARD (indicadores + gráficos)
   // ------------------------------------------------------------------
-  function atualizarDashboard() {
-    const total = solicitacoesCache.length;
-    const pendentes = solicitacoesCache.filter(s => !['concluido', 'cancelado'].includes(s.status)).length;
-    const concluidas = solicitacoesCache.filter(s => s.status === 'concluido').length;
+  function solicitacoesPorRegional() {
+    const regional = filtroRegional.value;
+    return regional ? solicitacoesCache.filter(s => s.regional_id === regional) : solicitacoesCache;
+  }
 
-    const comTempo = solicitacoesCache.filter(s => s.atendido_em);
+  function custosPorRegional() {
+    const regional = filtroRegional.value;
+    if (!regional) return custosCache;
+    const idsDaRegional = new Set(solicitacoesCache.filter(s => s.regional_id === regional).map(s => s.id));
+    return custosCache.filter(c => idsDaRegional.has(c.solicitacao_id));
+  }
+
+  function atualizarDashboard() {
+    const lista = solicitacoesPorRegional();
+    const total = lista.length;
+    const pendentes = lista.filter(s => !['concluido', 'cancelado'].includes(s.status)).length;
+    const concluidas = lista.filter(s => s.status === 'concluido').length;
+
+    const comTempo = lista.filter(s => s.atendido_em);
     const tempoMedio = comTempo.length
       ? (comTempo.reduce((acc, s) => acc + (new Date(s.atendido_em) - new Date(s.created_at)), 0) / comTempo.length / 3600000)
       : 0;
@@ -616,10 +662,11 @@
     document.getElementById('stat-concluidas').textContent = concluidas;
     document.getElementById('stat-tempo-medio').textContent = tempoMedio.toFixed(1);
 
-    const custoEfetivado = custosCache
+    const custosFiltrados = custosPorRegional();
+    const custoEfetivado = custosFiltrados
       .filter(c => c.efetivado)
       .reduce((acc, c) => acc + (parseFloat(c.custo_total_item) || 0), 0);
-    const custoPrevisto = custosCache
+    const custoPrevisto = custosFiltrados
       .filter(c => !c.efetivado)
       .reduce((acc, c) => acc + (parseFloat(c.custo_total_item) || 0), 0);
 
@@ -638,7 +685,7 @@
 
   function somarCustoPor(campo) {
     const soma = {};
-    custosCache.filter(c => c.efetivado).forEach(c => {
+    custosPorRegional().filter(c => c.efetivado).forEach(c => {
       const chave = c[campo] || '—';
       soma[chave] = (soma[chave] || 0) + (parseFloat(c.custo_total_item) || 0);
     });
@@ -683,7 +730,7 @@
 
   function contarPor(campo) {
     const contagem = {};
-    solicitacoesCache.forEach(s => {
+    solicitacoesPorRegional().forEach(s => {
       const chave = campo === 'tipo' ? (TIPO_LABEL[s.tipo] || s.tipo) : s[campo];
       contagem[chave] = (contagem[chave] || 0) + 1;
     });
