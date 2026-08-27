@@ -724,6 +724,54 @@
       .map(([chave, valor]) => `<div class="modal__linha"><strong>${escapeHtml(chave)}</strong>${escapeHtml(String(valor))}</div>`)
       .join('');
 
+    // ------------------------------------------------------------------
+    // COMBUSTÍVEL: calcula KM rodado desde o último abastecimento do MESMO
+    // veículo (identificado pela placa — não pelo colaborador, já que o
+    // mesmo carro pode ser abastecido por motoristas diferentes).
+    // ------------------------------------------------------------------
+    let alertaKmHtml = '';
+    if (s.tipo === 'combustivel' && s.dados && s.dados.placa) {
+      const placaAtual = String(s.dados.placa).trim().toUpperCase();
+      const kmAtual = parseFloat(s.dados.km_atual);
+
+      const { data: anteriores } = await supabaseClient
+        .from('solicitacoes')
+        .select('id, dados, created_at')
+        .eq('tipo', 'combustivel')
+        .eq('regional_id', s.regional_id)
+        .neq('id', s.id)
+        .lt('created_at', s.created_at)
+        .order('created_at', { ascending: false })
+        .limit(20); // pega os últimos 20 abastecimentos da regional e filtra a placa no JS
+
+      const anterior = (anteriores || []).find(a =>
+        a.dados && a.dados.placa && String(a.dados.placa).trim().toUpperCase() === placaAtual
+      );
+
+      if (!anterior) {
+        alertaKmHtml = `<div class="modal__linha" style="background:#EEF3F7;border-radius:8px;font-size:12.5px;">
+          ℹ️ Nenhum abastecimento anterior registrado para a placa <strong>${escapeHtml(placaAtual)}</strong>.
+        </div>`;
+      } else {
+        const kmAnterior = parseFloat(anterior.dados.km_atual);
+        if (!isNaN(kmAtual) && !isNaN(kmAnterior)) {
+          const kmRodado = kmAtual - kmAnterior;
+          const dataAnterior = new Date(anterior.created_at).toLocaleDateString('pt-BR');
+          if (kmRodado < 0) {
+            alertaKmHtml = `<div class="modal__linha" style="background:#FCEBEC;border:1px solid var(--cor-erro);border-radius:8px;font-size:12.5px;">
+              ⚠️ <strong>KM informado é menor que o abastecimento anterior</strong> (${kmAnterior.toLocaleString('pt-BR')} km em ${dataAnterior}).
+              Verifique se o valor foi digitado corretamente.
+            </div>`;
+          } else {
+            alertaKmHtml = `<div class="modal__linha" style="background:#EAF7F5;border-radius:8px;font-size:12.5px;">
+              🚗 <strong>${kmRodado.toLocaleString('pt-BR')} km rodados</strong> desde o último abastecimento
+              (${kmAnterior.toLocaleString('pt-BR')} km em ${dataAnterior}).
+            </div>`;
+          }
+        }
+      }
+    }
+
     document.getElementById('modal-corpo').innerHTML = `
       <h3>${s.protocolo}</h3>
       <div class="modal__linha"><strong>Nome</strong>${escapeHtml(s.nome_completo)}</div>
@@ -731,6 +779,7 @@
       <div class="modal__linha"><strong>Equipe</strong>${escapeHtml(s.equipe)}</div>
       <div class="modal__linha"><strong>Cidade</strong>${escapeHtml(s.cidade)}</div>
       <div class="modal__linha"><strong>Tipo</strong>${TIPO_LABEL[s.tipo]}</div>
+      ${alertaKmHtml}
       ${dadosEspecificos}
       ${itensHtml}
       ${s.observacoes ? `<div class="modal__linha"><strong>Observações</strong>${escapeHtml(s.observacoes)}</div>` : ''}
