@@ -133,6 +133,164 @@
     setTimeout(() => { modalSenha.hidden = true; }, 1500);
   });
 
+  // ------------------------------------------------------------------
+  // PAINEL MASTER — regionais, usuários (vínculo) e log de auditoria.
+  // Só visível/funcional para quem tem papel = 'master' (RLS garante
+  // isso no banco também, isto aqui é só a interface).
+  // ------------------------------------------------------------------
+  const btnPainelMaster = document.getElementById('btn-painel-master');
+  const modalMaster = document.getElementById('modal-master');
+
+  btnPainelMaster.addEventListener('click', () => {
+    modalMaster.hidden = false;
+    carregarRegionais();
+    carregarUsuarios();
+    carregarAuditoria();
+  });
+  document.getElementById('modal-master-fechar').addEventListener('click', () => { modalMaster.hidden = true; });
+  modalMaster.addEventListener('click', (e) => { if (e.target === modalMaster) modalMaster.hidden = true; });
+
+  document.querySelectorAll('.tab-master').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-master').forEach(b => {
+        b.classList.remove('ativa');
+        b.style.borderBottomColor = 'transparent';
+        b.style.color = 'var(--cor-texto-suave)';
+      });
+      btn.classList.add('ativa');
+      btn.style.borderBottomColor = 'var(--cor-primaria)';
+      btn.style.color = 'inherit';
+
+      document.querySelectorAll('.tab-conteudo-master').forEach(sec => { sec.hidden = true; });
+      document.getElementById('tab-conteudo-' + btn.dataset.tab).hidden = false;
+    });
+  });
+
+  // ---- Sub-aba: Regionais ----
+  async function carregarRegionais() {
+    const { data, error } = await supabaseClient
+      .from('regionais')
+      .select('id, nome, slug, ativo')
+      .order('nome');
+
+    const corpo = document.getElementById('tabela-regionais-corpo');
+    if (error || !data) {
+      corpo.innerHTML = '<tr><td colspan="3" style="padding:12px;">Erro ao carregar regionais.</td></tr>';
+      return;
+    }
+    corpo.innerHTML = data.map(r => `
+      <tr style="border-bottom:1px solid var(--cor-borda);">
+        <td style="padding:8px;">${r.nome}</td>
+        <td style="padding:8px;">${r.slug}</td>
+        <td style="padding:8px;">${r.ativo ? '✔ Ativa' : '✕ Inativa'}</td>
+      </tr>
+    `).join('');
+
+    // Também usado para popular o select de regional no form de usuários
+    const selectRegional = document.getElementById('input-usuario-regional');
+    selectRegional.innerHTML = data.filter(r => r.ativo)
+      .map(r => `<option value="${r.id}">${r.nome}</option>`).join('');
+  }
+
+  document.getElementById('form-nova-regional').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const erroEl = document.getElementById('regional-erro');
+    erroEl.hidden = true;
+
+    const nome = document.getElementById('input-regional-nome').value.trim();
+    const slug = document.getElementById('input-regional-slug').value.trim().toLowerCase();
+
+    if (!nome || !slug) return;
+
+    const { error } = await supabaseClient.from('regionais').insert({ nome, slug });
+    if (error) {
+      erroEl.textContent = 'Erro ao criar regional: ' + error.message;
+      erroEl.hidden = false;
+      return;
+    }
+    document.getElementById('form-nova-regional').reset();
+    await carregarRegionais();
+  });
+
+  // ---- Sub-aba: Usuários (vincular regional/papel a um login já criado) ----
+  async function carregarUsuarios() {
+    const { data, error } = await supabaseClient
+      .from('vw_perfis_admin_com_email')
+      .select('*')
+      .order('nome');
+
+    const corpo = document.getElementById('tabela-usuarios-corpo');
+    if (error || !data) {
+      corpo.innerHTML = '<tr><td colspan="4" style="padding:12px;">Erro ao carregar usuários.</td></tr>';
+      return;
+    }
+    corpo.innerHTML = data.map(u => `
+      <tr style="border-bottom:1px solid var(--cor-borda);">
+        <td style="padding:8px;">${u.nome}</td>
+        <td style="padding:8px;">${u.email || '—'}</td>
+        <td style="padding:8px;">${u.papel}</td>
+        <td style="padding:8px;">${u.regional_nome || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('form-novo-usuario').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const erroEl = document.getElementById('usuario-erro');
+    const sucessoEl = document.getElementById('usuario-sucesso');
+    erroEl.hidden = true;
+    sucessoEl.hidden = true;
+
+    const nome = document.getElementById('input-usuario-nome').value.trim();
+    const uuid = document.getElementById('input-usuario-uuid').value.trim();
+    const papel = document.getElementById('input-usuario-papel').value;
+    const regionalId = document.getElementById('input-usuario-regional').value;
+
+    if (!nome || !uuid) return;
+
+    const { error } = await supabaseClient.from('perfis_admin').insert({
+      id: uuid,
+      nome,
+      papel,
+      regional_id: papel === 'master' ? null : regionalId,
+    });
+
+    if (error) {
+      erroEl.textContent = 'Erro ao vincular usuário: ' + error.message;
+      erroEl.hidden = false;
+      return;
+    }
+
+    sucessoEl.textContent = '✔ Usuário vinculado com sucesso!';
+    sucessoEl.hidden = false;
+    document.getElementById('form-novo-usuario').reset();
+    await carregarUsuarios();
+    setTimeout(() => { sucessoEl.hidden = true; }, 3000);
+  });
+
+  // ---- Sub-aba: Log de Auditoria ----
+  async function carregarAuditoria() {
+    const { data, error } = await supabaseClient
+      .from('vw_historico_auditoria')
+      .select('*')
+      .limit(500);
+
+    const corpo = document.getElementById('tabela-auditoria-corpo');
+    if (error || !data) {
+      corpo.innerHTML = '<tr><td colspan="5" style="padding:12px;">Erro ao carregar log.</td></tr>';
+      return;
+    }
+    corpo.innerHTML = data.map(h => `
+      <tr style="border-bottom:1px solid var(--cor-borda);">
+        <td style="padding:8px;">${new Date(h.created_at).toLocaleString('pt-BR')}</td>
+        <td style="padding:8px;">${h.protocolo}</td>
+        <td style="padding:8px;">${h.regional_nome || '—'}</td>
+        <td style="padding:8px;">${STATUS_LABEL[h.status_anterior] || '—'} → ${STATUS_LABEL[h.status_novo] || h.status_novo}</td>
+        <td style="padding:8px;">${h.alterado_por || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
   async function mostrarPainel(session) {
     telaLogin.hidden = true;
     painel.hidden = false;
@@ -157,12 +315,14 @@
 
     if (!perfil || perfil.papel !== 'master') {
       campoFiltroRegional.hidden = true;
+      btnPainelMaster.hidden = true;
       tituloPainel.textContent = 'Requisições de Materiais' +
         (perfil && perfil.regionais ? ' · ' + perfil.regionais.nome : '');
       return;
     }
 
     tituloPainel.textContent = 'Requisições de Materiais · Todas as Regionais';
+    btnPainelMaster.hidden = false;
 
     const { data: regionais } = await supabaseClient
       .from('regionais')
