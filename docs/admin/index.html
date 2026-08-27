@@ -50,8 +50,34 @@
         <p class="app-header__subtitle" id="usuario-logado">—</p>
       </div>
     </div>
-    <button id="btn-logout" class="btn-logout">Sair</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button id="btn-alterar-senha" class="btn-logout" style="background:transparent;border:1px solid currentColor;">Alterar senha</button>
+      <button id="btn-logout" class="btn-logout">Sair</button>
+    </div>
   </header>
+
+  <!-- Modal: alterar senha -->
+  <div id="modal-senha" class="modal" hidden>
+    <div class="modal__conteudo" style="max-width:380px;">
+      <button id="modal-senha-fechar" class="modal__fechar" type="button">&times;</button>
+      <h2 style="margin-top:0;">Alterar senha</h2>
+      <form id="form-alterar-senha">
+        <label style="display:block;margin-bottom:12px;">
+          Nova senha
+          <input type="password" id="input-nova-senha" minlength="6" required
+                 style="width:100%;padding:10px;margin-top:4px;border:1px solid #ccc;border-radius:8px;font-size:16px;">
+        </label>
+        <label style="display:block;margin-bottom:12px;">
+          Confirmar nova senha
+          <input type="password" id="input-confirmar-senha" minlength="6" required
+                 style="width:100%;padding:10px;margin-top:4px;border:1px solid #ccc;border-radius:8px;font-size:16px;">
+        </label>
+        <p id="senha-erro" class="aviso-erro" hidden style="color:var(--cor-erro,#C6363C);font-size:13px;"></p>
+        <p id="senha-sucesso" hidden style="color:var(--cor-sucesso,#1E8E5A);font-size:13px;">✔ Senha alterada com sucesso!</p>
+        <button type="submit" class="btn-primario" style="width:100%;margin-top:8px;">Salvar nova senha</button>
+      </form>
+    </div>
+  </div>
 
   <main class="app-main app-main--largo">
 
