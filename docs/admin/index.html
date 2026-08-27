@@ -51,6 +51,7 @@
       </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
+      <button id="btn-painel-master" class="btn-logout" style="background:transparent;border:1px solid currentColor;" hidden>⚙ Painel Master</button>
       <button id="btn-alterar-senha" class="btn-logout" style="background:transparent;border:1px solid currentColor;">Alterar senha</button>
       <button id="btn-logout" class="btn-logout">Sair</button>
     </div>
@@ -79,7 +80,125 @@
     </div>
   </div>
 
+  <!-- Modal: Painel Master (regionais, usuários, log de auditoria) -->
+  <div id="modal-master" class="modal" hidden>
+    <div class="modal__conteudo" style="max-width:900px;width:95%;">
+      <button id="modal-master-fechar" class="modal__fechar" type="button">&times;</button>
+      <h2 style="margin-top:0;">Painel Master</h2>
+
+      <!-- Sub-abas -->
+      <div style="display:flex;gap:8px;border-bottom:1px solid var(--cor-borda);margin-bottom:16px;">
+        <button class="tab-master ativa" data-tab="regionais" style="background:none;border:none;border-bottom:3px solid var(--cor-primaria);padding:10px 14px;font-weight:700;cursor:pointer;">Regionais</button>
+        <button class="tab-master" data-tab="usuarios" style="background:none;border:none;border-bottom:3px solid transparent;padding:10px 14px;font-weight:700;cursor:pointer;color:var(--cor-texto-suave);">Usuários</button>
+        <button class="tab-master" data-tab="auditoria" style="background:none;border:none;border-bottom:3px solid transparent;padding:10px 14px;font-weight:700;cursor:pointer;color:var(--cor-texto-suave);">Log de Auditoria</button>
+      </div>
+
+      <!-- ===== ABA: REGIONAIS ===== -->
+      <div id="tab-conteudo-regionais" class="tab-conteudo-master">
+        <form id="form-nova-regional" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="flex:1;min-width:140px;">
+            <span style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Nome</span>
+            <input type="text" id="input-regional-nome" placeholder="Ex: Metro III" required
+                   style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:14px;">
+          </label>
+          <label style="flex:1;min-width:140px;">
+            <span style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Slug (identificador único)</span>
+            <input type="text" id="input-regional-slug" placeholder="Ex: metro3" required pattern="[a-z0-9]+"
+                   style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:14px;">
+          </label>
+          <button type="submit" class="btn-primario" style="padding:9px 16px;">+ Criar regional</button>
+        </form>
+        <p id="regional-erro" class="aviso-erro" hidden style="color:var(--cor-erro,#C6363C);font-size:13px;"></p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="text-align:left;border-bottom:2px solid var(--cor-borda);">
+              <th style="padding:8px;">Nome</th>
+              <th style="padding:8px;">Slug</th>
+              <th style="padding:8px;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-regionais-corpo">
+            <tr><td colspan="3" style="padding:12px;">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ===== ABA: USUÁRIOS ===== -->
+      <div id="tab-conteudo-usuarios" class="tab-conteudo-master" hidden>
+        <p style="font-size:12.5px;color:var(--cor-texto-suave);margin:0 0 12px;">
+          O login (e-mail/senha) continua sendo criado no Supabase → Authentication → Users → Add user.
+          Depois de criado, cole aqui o <strong>UUID</strong> gerado para vincular a pessoa a uma regional e papel.
+        </p>
+        <form id="form-novo-usuario" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:16px;align-items:flex-end;">
+          <label>
+            <span style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Nome</span>
+            <input type="text" id="input-usuario-nome" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:14px;">
+          </label>
+          <label style="grid-column:span 2;">
+            <span style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">UUID (do Supabase Authentication)</span>
+            <input type="text" id="input-usuario-uuid" required placeholder="Ex: a707ffd5-6ff2-4398-b66f-881d81623813"
+                   style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:14px;">
+          </label>
+          <label>
+            <span style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Papel</span>
+            <select id="input-usuario-papel" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:14px;">
+              <option value="almoxarifado">Almoxarifado</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="admin">Admin</option>
+              <option value="master">Master</option>
+            </select>
+          </label>
+          <label>
+            <span style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Regional</span>
+            <select id="input-usuario-regional" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:14px;">
+            </select>
+          </label>
+          <button type="submit" class="btn-primario" style="padding:9px 16px;height:38px;">+ Vincular usuário</button>
+        </form>
+        <p id="usuario-erro" class="aviso-erro" hidden style="color:var(--cor-erro,#C6363C);font-size:13px;"></p>
+        <p id="usuario-sucesso" hidden style="color:var(--cor-sucesso,#1E8E5A);font-size:13px;"></p>
+        <div style="max-height:320px;overflow-y:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="text-align:left;border-bottom:2px solid var(--cor-borda);">
+                <th style="padding:8px;">Nome</th>
+                <th style="padding:8px;">E-mail</th>
+                <th style="padding:8px;">Papel</th>
+                <th style="padding:8px;">Regional</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-usuarios-corpo">
+              <tr><td colspan="4" style="padding:12px;">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== ABA: LOG DE AUDITORIA ===== -->
+      <div id="tab-conteudo-auditoria" class="tab-conteudo-master" hidden>
+        <div style="max-height:400px;overflow-y:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="text-align:left;border-bottom:2px solid var(--cor-borda);">
+                <th style="padding:8px;">Data/Hora</th>
+                <th style="padding:8px;">Protocolo</th>
+                <th style="padding:8px;">Regional</th>
+                <th style="padding:8px;">De → Para</th>
+                <th style="padding:8px;">Alterado por</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-auditoria-corpo">
+              <tr><td colspan="5" style="padding:12px;">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <main class="app-main app-main--largo">
+
 
     <!-- ---------------- DASHBOARD ---------------- -->
     <section class="dashboard-cards">
