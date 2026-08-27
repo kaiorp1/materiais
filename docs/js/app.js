@@ -2,6 +2,13 @@
   'use strict';
 
   // ------------------------------------------------------------------
+  // Regional deste deploy — trocar para 'metro2' na pasta/repositório
+  // da Metro II. Cada regional tem seu próprio deploy do site com este
+  // valor diferente, mas compartilham o mesmo banco Supabase.
+  // ------------------------------------------------------------------
+  const REGIONAL_SLUG = 'metro1';
+
+  // ------------------------------------------------------------------
   // Estado
   // ------------------------------------------------------------------
   let tipoAtual = null;
@@ -152,7 +159,10 @@
       if (termo.length < 3) { listaEl.hidden = true; return; }
 
       timerBusca = setTimeout(async () => {
-        const { data, error } = await supabaseClient.rpc('buscar_materiais', { p_termo: termo });
+        const { data, error } = await supabaseClient.rpc('buscar_materiais', {
+          p_termo: termo,
+          p_regional_slug: REGIONAL_SLUG
+        });
         if (error || !data) { listaEl.hidden = true; return; }
 
         listaEl.innerHTML = '';
@@ -385,6 +395,7 @@
       //    Supabase precisa "ler de volta" a linha para devolver o protocolo
       //    gerado. A função RPC roda com privilégio elevado só para esse retorno.
       const { data: resultadoRpc, error: erroInsercao } = await supabaseClient.rpc('registrar_solicitacao', {
+        p_regional_slug: REGIONAL_SLUG,
         p_nome_completo: dadosComuns.nome_completo,
         p_matricula: dadosComuns.matricula,
         p_cpf: dadosComuns.cpf || null,
