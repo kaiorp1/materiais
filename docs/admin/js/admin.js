@@ -5,7 +5,8 @@
     combustivel: 'Combustível',
     manutencao_veiculo: 'Manutenção de Veículo',
     uniformes_epis: 'Uniformes e EPIs',
-    materiais_ferramentas: 'Materiais e Ferramentas'
+    materiais_ferramentas: 'Materiais e Ferramentas',
+    checklist_materiais: 'Checklist de Materiais'
   };
 
   const STATUS_LABEL = {
@@ -508,6 +509,7 @@
         manutencao_veiculo: 'Manutenção de Veículo',
         uniformes_epis: 'Uniformes e EPIs',
         materiais_ferramentas: 'Materiais e Ferramentas',
+        checklist_materiais: 'Checklist de Materiais',
       };
 
       const STATUS_LABEL_EXP = {
@@ -670,8 +672,18 @@
       }
     }
 
+    // Checklist de Materiais é apenas informativo: sem catálogo/custo/estoque,
+    // só a lista de itens e quantidades que o colaborador informou ter em mãos.
+    const ehChecklist = s.tipo === 'checklist_materiais';
+
     let itensHtml = '';
-    if (itens && itens.length > 0) {
+    if (ehChecklist && itens && itens.length > 0) {
+      itensHtml = itens.map(i => `
+        <div class="modal__linha">
+          <strong>${escapeHtml(i.item)}</strong>
+          <span>Qtd: ${i.quantidade}</span>
+        </div>`).join('');
+    } else if (itens && itens.length > 0) {
       let totalPedido = 0;
       itensHtml = itens.map(i => {
         const custoUnit = parseFloat(i.custo_unitario_snapshot);
@@ -862,15 +874,19 @@
     // protegida por RLS de verdade), e não só quando o master escolhe uma
     // regional específica no dropdown.
     const regional = filtroRegional.value;
-    const listaVisivel = regional
+    let listaVisivel = regional
       ? solicitacoesCache.filter(s => s.regional_id === regional)
       : solicitacoesCache;
+    // Checklist de Materiais é só informativo e nunca deve entrar no custo.
+    listaVisivel = listaVisivel.filter(s => s.tipo !== 'checklist_materiais');
     const idsVisiveis = new Set(listaVisivel.map(s => s.id));
     return custosCache.filter(c => idsVisiveis.has(c.solicitacao_id));
   }
 
   function atualizarDashboard() {
-    const lista = solicitacoesPorRegional();
+    // Checklist de Materiais é apenas informativo (auto-concluído no banco, sem
+    // fluxo de aprovação) — não deve contar nos KPIs de pendentes/concluídas/custo.
+    const lista = solicitacoesPorRegional().filter(s => s.tipo !== 'checklist_materiais');
     const total = lista.length;
     const pendentes = lista.filter(s => !['concluido', 'cancelado'].includes(s.status)).length;
     const concluidas = lista.filter(s => s.status === 'concluido').length;
