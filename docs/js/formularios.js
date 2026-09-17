@@ -137,5 +137,26 @@ const CONFIG_FORMULARIOS = {
         </label>
       </div>
     `
+  },
+
+  checklist_materiais: {
+    titulo: 'Checklist de Materiais',
+    permiteMultiplosItens: true,
+    usaCatalogo: true, // ativa autocomplete do catálogo de materiais
+    instrucaoItens: '🛈 Este checklist é <strong>apenas informativo</strong> — liste os materiais que você já tem em mãos (ex: no carro/viatura) e a quantidade de cada um. Adicione <strong>UM material por linha</strong> e selecione da lista de sugestões. Use o botão <strong>+ Adicionar item</strong> para incluir quantos materiais forem necessários.',
+    itemCamposHtml: (idx) => `
+      <button type="button" class="item-linha__remover" data-remover-item>&times;</button>
+      <label class="campo campo-autocomplete">
+        <span>Material * <em style="font-weight:400;color:var(--cor-texto-suave);">(apenas 1 por linha)</em></span>
+        <input type="text" name="item" required maxlength="120" placeholder="Digite para buscar no catálogo..." autocomplete="off" data-autocomplete-catalogo>
+        <input type="hidden" name="catalogo_id">
+        <div class="autocomplete-lista" hidden></div>
+        <span class="campo-ajuda" data-status-catalogo></span>
+      </label>
+      <label class="campo">
+        <span>Quantidade que você tem *</span>
+        <input type="number" name="quantidade" required min="1" step="1" value="1">
+      </label>
+    `
   }
 };
