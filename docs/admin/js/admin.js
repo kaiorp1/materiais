@@ -215,7 +215,10 @@
 
   // ---- Sub-aba: Usuários (vincular regional/papel a um login já criado) ----
   async function carregarUsuarios() {
-    const { data, error } = await supabaseClient.rpc('listar_perfis_admin');
+    const { data, error } = await supabaseClient
+      .from('vw_perfis_admin_com_email')
+      .select('*')
+      .order('nome');
 
     const corpo = document.getElementById('tabela-usuarios-corpo');
     if (error || !data) {
@@ -246,11 +249,11 @@
 
     if (!nome || !uuid) return;
 
-    const { error } = await supabaseClient.rpc('vincular_usuario', {
-      p_id: uuid,
-      p_nome: nome,
-      p_papel: papel,
-      p_regional_id: papel === 'master' ? null : regionalId,
+    const { error } = await supabaseClient.from('perfis_admin').insert({
+      id: uuid,
+      nome,
+      papel,
+      regional_id: papel === 'master' ? null : regionalId,
     });
 
     if (error) {
